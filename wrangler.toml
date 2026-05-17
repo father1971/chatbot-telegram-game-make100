@@ -1,0 +1,9 @@
+name = "telegram-game-bot"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+GAME_SHORT_NAME = "make100"
+GAME_URL = "https://gamemake100.pages.dev"
+# TELEGRAM_BOT_TOKEN = "..." # Укажите в дашборде Cloudflare (Settings -> Variables and Secrets)

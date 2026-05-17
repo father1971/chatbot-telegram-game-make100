@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Bot, Gamepad2, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Bot, Gamepad2, KeyRound, AlertCircle, CheckCircle2, CloudLightning } from 'lucide-react';
 
 export default function App() {
   const [status, setStatus] = useState<{status: string; botRunning: boolean; gameUrl: string} | null>(null);
