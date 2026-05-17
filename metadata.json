@@ -1,0 +1,8 @@
+{
+  "name": "GameMake100 Telegram Bot",
+  "description": "A Node.js server that runs a Telegram bot to launch the GameMake100 custom web game directly inside the Telegram application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
