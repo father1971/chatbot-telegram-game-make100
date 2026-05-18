@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Make100</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 10px 20px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Игра Make100</h1>
+    <p>Мой счет: <span id="score">0</span></p>
+    <button onclick="increaseScore()">Увеличить счет</button>
+    <br>
+    <button onclick="saveScoreToTelegram()">Сохранить рекорд</button>
+    <br>
+    <button onclick="shareGame()">Поделиться игрой</button>
+
+    <!-- Скрипт игры -->
+    <script>
+        let currentScore = 0;
+
+        // 1. Используем TelegramGameProxy.initParams для получения параметров от Telegram
+        // Здесь мы можем прочитать payload, настроенный через answerCallbackQuery
+        let urlParams;
+        if (typeof TelegramGameProxy !== 'undefined' && TelegramGameProxy.initParams) {
+            urlParams = TelegramGameProxy.initParams;
+        } else {
+            // Фолбэк на стандартный парсинг GET параметров
+            urlParams = new URLSearchParams(window.location.search);
+        }
+
+        const userId = urlParams.user_id || urlParams.get?.('user_id');
+        const inlineMessageId = urlParams.inline_message_id || urlParams.get?.('inline_message_id');
+        const chatId = urlParams.chat_id || urlParams.get?.('chat_id');
+        const messageId = urlParams.message_id || urlParams.get?.('message_id');
+
+        function increaseScore() {
+            currentScore += 10;
+            document.getElementById('score').innerText = currentScore;
+        }
+
+        // 2. Отправка результата на наш Cloudflare Worker, который вызовет setGameScore
+        async function saveScoreToTelegram() {
+            if (!userId) {
+                alert("Ошибка: Не найден ID пользователя. Запустите игру через Telegram.");
+                return;
+            }
+
+            // Замените на URL вашего Cloudflare Worker
+            const WORKER_URL = "https://your-worker-subdomain.workers.dev/set_score"; 
+
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        score: currentScore,
+                        inline_message_id: inlineMessageId,
+                        chat_id: chatId,
+                        message_id: messageId
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.ok) {
+                    alert('Рекорд сохранен в Telegram!');
+                } else {
+                    alert('Ошибка сохранения: ' + result.description);
+                }
+            } catch (err) {
+                alert('Не удалось связаться с сервером');
+            }
+        }
+
+        // 3. Вызов TelegramGameProxy.shareScore()
+        function shareGame() {
+            if (typeof TelegramGameProxy !== 'undefined' && TelegramGameProxy.shareScore) {
+                TelegramGameProxy.shareScore();
+            } else {
+                alert("Данная функция работает только внутри Telegram");
+            }
+        }
+    </script>
+
+    <!-- 4. Подключаем официальный скрипт для Telegram Game Platform -->
+    <script src="https://telegram.org/js/games.js"></script>
+</body>
+</html>

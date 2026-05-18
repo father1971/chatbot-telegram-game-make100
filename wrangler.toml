@@ -6,4 +6,5 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 GAME_SHORT_NAME = "make100"
 GAME_URL = "https://gamemake100.pages.dev"
-# TELEGRAM_BOT_TOKEN = "..." # Укажите в дашборде Cloudflare (Settings -> Variables and Secrets)
+# BOT_TOKEN = "..." # Обязательно укажите в дашборде Cloudflare как Secret (Settings -> Variables and Secrets)
+
