@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Make100 Example</title>
+</head>
+<body>
+    <h1>Игра Make100</h1>
+    <p>Бот: <span id="botName">нет</span></p>
+
+    <!-- Скрипт игры -->
+    <script>
+        // 1. Получаем параметры
+        let urlParams;
+        if (typeof TelegramGameProxy !== 'undefined' && TelegramGameProxy.initParams) {
+            urlParams = TelegramGameProxy.initParams;
+        } else {
+            urlParams = new URLParams(window.location.search);
+        }
+
+        const userId = urlParams.user_id || urlParams.get?.('user_id');
+        const botUsername = urlParams.bot || urlParams.get?.('bot') || "Game_Make100_bot";
+        const apiUrl = decodeURIComponent(urlParams.api || urlParams.get?.('api') || ""); // Для отправки рекорда
+
+        document.getElementById('botName').innerText = botUsername;
+
+        // Отправка рекорда
+        async function saveScoreToTelegram(score) {
+            if (!apiUrl) return alert("API url не найден в параметрах");
+            
+            await fetch(apiUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: userId,
+                    score: score,
+                    inline_message_id: urlParams.inline_message_id || urlParams.get?.('inline_message_id'),
+                    chat_id: urlParams.chat_id || urlParams.get?.('chat_id'),
+                    message_id: urlParams.message_id || urlParams.get?.('message_id')
+                })
+            });
+        }
+    </script>
+    <script src="https://telegram.org/js/games.js"></script>
+</body>
+</html>
