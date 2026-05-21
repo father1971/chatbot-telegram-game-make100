@@ -94,7 +94,8 @@ export default {
         }
 
         // 2. Клик по кнопке "Играть"
-        if (update.callback_query?.game_short_name === GAME_SHORT_NAME) {
+        // Убираем излишне строгую проверку по имени, чтобы кнопка всегда срабатывала
+        if (update.callback_query?.game_short_name) {
           const callbackQueryId = update.callback_query.id;
           const userId = update.callback_query.from.id;
           const inlineMessageId = update.callback_query.inline_message_id || '';
@@ -102,6 +103,8 @@ export default {
           const chatId = update.callback_query.message?.chat?.id || '';
           
           const apiUrl = new URL(request.url).origin + '/api/set_score';
+          
+          // Тот самый формат ссылки, который мы проверили в тестовом боте
           const finalUrl = `${GAME_URL}?user_id=${userId}&inline_message_id=${inlineMessageId}&message_id=${messageId}&chat_id=${chatId}&bot=${BOT_USERNAME}&api=${encodeURIComponent(apiUrl)}`;
           
           await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
