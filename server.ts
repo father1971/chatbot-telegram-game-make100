@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -49,20 +48,10 @@ if (BOT_TOKEN) {
       const chatId = query.message?.chat?.id || '';
       const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
       
-      try {
-        const gameUrlObj = new URL(GAME_URL);
-        gameUrlObj.searchParams.set('user_id', String(userId));
-        gameUrlObj.searchParams.set('inline_message_id', String(inlineMessageId));
-        gameUrlObj.searchParams.set('message_id', String(messageId));
-        gameUrlObj.searchParams.set('chat_id', String(chatId));
-        gameUrlObj.searchParams.set('bot', BOT_USERNAME);
-        gameUrlObj.searchParams.set('api', `${appUrl}/api/set_score`);
-
-        bot.answerCallbackQuery(query.id, { url: gameUrlObj.toString() }).catch(e => console.error('[Bot] answerCallbackQuery error:', e));
-      } catch (err) {
-        console.error('[Bot] Error creating game URL:', err);
-        bot.answerCallbackQuery(query.id, { text: 'Ошибка при запуске игры. Попробуйте еще раз.' }).catch(e => console.error(e));
-      }
+      // Передаем параметры в URL игры (подтвержденный рабочий способ)
+      const finalUrl = `${GAME_URL}?user_id=${userId}&inline_message_id=${inlineMessageId}&message_id=${messageId}&chat_id=${chatId}&bot=${BOT_USERNAME}&api=${encodeURIComponent(appUrl + '/api/set_score')}`;
+      
+      bot.answerCallbackQuery(query.id, { url: finalUrl }).catch(e => console.error('Error answering query:', e));
     }
   });
 
@@ -84,34 +73,26 @@ if (BOT_TOKEN) {
 
 async function startServer() {
   const app = express();
-  app.use(cors());
   app.use(express.json());
 
   app.post('/api/set_score', async (req, res) => {
-    if (!bot) {
-      console.error('[API] Attempted to set score but bot is not initialized');
-      return res.status(500).json({ error: 'Bot is not running' });
-    }
+    if (!bot) return res.status(500).json({ error: 'Bot is not running' });
     
     try {
       const { user_id, score, inline_message_id, chat_id, message_id } = req.body;
-      console.log(`[API] Setting score ${score} for user ${user_id}`);
-      
       const opts: any = { force: true };
       
       if (inline_message_id) {
         opts.inline_message_id = inline_message_id;
-      } else if (chat_id && message_id) {
+      } else {
         opts.chat_id = chat_id;
         opts.message_id = message_id;
-      } else {
-        throw new Error('Missing message identification parameters');
       }
       
       const result = await bot.setGameScore(user_id, score, opts);
-      res.json({ ok: true, result });
+      res.json(result);
     } catch (err: any) {
-      console.error('[API] setGameScore Error:', err.message);
+      console.error('setGameScore Error:', err);
       res.status(500).json({ error: err.message });
     }
   });

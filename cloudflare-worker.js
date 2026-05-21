@@ -14,16 +14,16 @@ export default {
     const { pathname } = new URL(request.url);
     const BOT_TOKEN = env.BOT_TOKEN || env.TELEGRAM_BOT_TOKEN;
     const GAME_SHORT_NAME = env.GAME_SHORT_NAME || 'make100';
-    const GAME_URL = env.GAME_URL || 'https://gamemake100.pages.dev';
-    const BOT_USERNAME = env.BOT_USERNAME || 'Game_Make100_bot'; // <--- ПРОДАКШЕН ИМЯ БОТА
+    const GAME_URL = env.GAME_URL || 'https://ais-pre-v6zarkuvyxohytr4laef7s-84066267023.europe-west1.run.app';
+    const BOT_USERNAME = env.BOT_USERNAME || 'Game_Make100_bot';
 
     if (!BOT_TOKEN) {
-      return new Response('Bot token is missing in environment variables', { status: 500 });
+      return new Response('Error: BOT_TOKEN is missing in Cloudflare Secrets', { status: 500 });
     }
 
     const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-    // --- 1. Endpoint для игры: Установка рекордов (setGameScore) ---
+    // --- 1. Endpoint для установки рекордов ---
     if (request.method === 'POST' && pathname === '/api/set_score') {
       try {
         const data = await request.json();
@@ -32,12 +32,12 @@ export default {
         const payload = { 
           user_id: user_id, 
           score: score,
-          force: true // Обновлять счет в любом случае
+          force: true 
         };
 
         if (inline_message_id) {
           payload.inline_message_id = inline_message_id;
-        } else {
+        } else if (chat_id && message_id) {
           payload.chat_id = chat_id;
           payload.message_id = message_id;
         }
@@ -61,16 +61,16 @@ export default {
       }
     }
 
-    // --- 2. Endpoint для Telegram Webhook ---
+    // --- 2. Обработка Webhook (Команды и клики) ---
     if (request.method === 'POST') {
       try {
         const update = await request.json();
 
-        // Обработка команды /start
+        // 1. Старт игры
         if (update.message?.text?.startsWith('/start')) {
           const chatId = update.message.chat.id;
           
-          await fetch(`${TELEGRAM_API}/sendGame`, {
+          const sendResponse = await fetch(`${TELEGRAM_API}/sendGame`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -78,53 +78,44 @@ export default {
               game_short_name: GAME_SHORT_NAME
             })
           });
-        }
 
-        // Обработка нажатия кнопки "Играть"
-        if (update.callback_query?.game_short_name === GAME_SHORT_NAME) {
-          const callbackQueryId = update.callback_query.id;
-          
-          const userId = update.callback_query.from.id;
-          const inlineMessageId = update.callback_query.inline_message_id || '';
-          const messageId = update.callback_query.message?.message_id || '';
-          const chatId = update.callback_query.message?.chat?.id || '';
-          
-          // В Worker.js API URL будет ссылаться на сам воркер
-          const apiUrl = new URL(request.url).origin + '/api/set_score';
-          
-          try {
-            const gameUrlObj = new URL(GAME_URL);
-            gameUrlObj.searchParams.set('user_id', String(userId));
-            gameUrlObj.searchParams.set('inline_message_id', String(inlineMessageId));
-            gameUrlObj.searchParams.set('message_id', String(messageId));
-            gameUrlObj.searchParams.set('chat_id', String(chatId));
-            gameUrlObj.searchParams.set('bot', BOT_USERNAME);
-            gameUrlObj.searchParams.set('api', apiUrl);
-
-            await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
+          const sendResult = await sendResponse.json();
+          if (!sendResult.ok) {
+            // Если игра не зарегистрирована в BotFather, отправим обычное сообщение с ошибкой
+            await fetch(`${TELEGRAM_API}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                callback_query_id: callbackQueryId,
-                url: gameUrlObj.toString()
-              })
-            });
-          } catch (urlErr) {
-            console.error('Error building game URL:', urlErr);
-            await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                callback_query_id: callbackQueryId,
-                text: 'Ошибка конфигурации игры. Проверьте GAME_URL.'
+                chat_id: chatId,
+                text: `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`
               })
             });
           }
         }
 
+        // 2. Клик по кнопке "Играть"
+        if (update.callback_query?.game_short_name === GAME_SHORT_NAME) {
+          const callbackQueryId = update.callback_query.id;
+          const userId = update.callback_query.from.id;
+          const inlineMessageId = update.callback_query.inline_message_id || '';
+          const messageId = update.callback_query.message?.message_id || '';
+          const chatId = update.callback_query.message?.chat?.id || '';
+          
+          const apiUrl = new URL(request.url).origin + '/api/set_score';
+          const finalUrl = `${GAME_URL}?user_id=${userId}&inline_message_id=${inlineMessageId}&message_id=${messageId}&chat_id=${chatId}&bot=${BOT_USERNAME}&api=${encodeURIComponent(apiUrl)}`;
+          
+          await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              callback_query_id: callbackQueryId,
+              url: finalUrl
+            })
+          });
+        }
+
         return new Response('OK', { status: 200 });
       } catch (err) {
-        console.error('Webhook Error:', err);
         return new Response('Webhook Error', { status: 500 });
       }
     }
