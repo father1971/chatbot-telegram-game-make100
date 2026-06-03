@@ -30,16 +30,18 @@ export default {
         const { user_id, score, inline_message_id, chat_id, message_id } = data;
 
         const payload = { 
-          user_id: user_id, 
-          score: score,
+          user_id: Number(user_id), 
+          score: Math.floor(Number(score)),
           force: true 
         };
 
-        if (inline_message_id) {
-          payload.inline_message_id = inline_message_id;
+        if (inline_message_id && inline_message_id !== 'null' && inline_message_id !== '') {
+          payload.inline_message_id = String(inline_message_id);
         } else if (chat_id && message_id) {
-          payload.chat_id = chat_id;
-          payload.message_id = message_id;
+          payload.chat_id = Number(chat_id);
+          payload.message_id = Number(message_id);
+        } else {
+          return new Response(JSON.stringify({ error: 'Missing message identification' }), { status: 400 });
         }
 
         const telegramResponse = await fetch(`${TELEGRAM_API}/setGameScore`, {
@@ -91,6 +93,25 @@ export default {
               })
             });
           }
+        }
+
+        // 1.5 Обработка Inline Query (для кнопки "Поделиться" в меню игры)
+        if (update.inline_query) {
+          await fetch(`${TELEGRAM_API}/answerInlineQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inline_query_id: update.inline_query.id,
+              results: [
+                {
+                  type: 'game',
+                  id: update.inline_query.id,
+                  game_short_name: GAME_SHORT_NAME
+                }
+              ],
+              cache_time: 0
+            })
+          });
         }
 
         // 2. Клик по кнопке "Играть"

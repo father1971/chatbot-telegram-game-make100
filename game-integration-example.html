@@ -9,6 +9,13 @@
     <h1>Игра Make100</h1>
     <p>Бот: <span id="botName">нет</span></p>
 
+    <!-- Кнопка "Поделиться" для вызова Telegram-интерфейса шаринга -->
+    <div style="margin: 20px 0;">
+        <button id="shareButton" onclick="shareGameScore()" style="padding: 12px 24px; font-size: 16px; background-color: #2481cc; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; font-weight: bold; transition: background 0.2s;">
+            📢 Поделиться результатом
+        </button>
+    </div>
+
     <!-- Скрипт игры -->
     <script>
         // 1. Получаем параметры
@@ -40,6 +47,17 @@
                     message_id: urlParams.message_id || urlParams.get?.('message_id')
                 })
             });
+        }
+
+        // 2. Метод для вызова стандартного окна Telegram "Поделиться результатом"
+        function shareGameScore() {
+            if (typeof TelegramGameProxy !== 'undefined') {
+                console.log('Вызываем стандартную функцию Telegram shareScore...');
+                TelegramGameProxy.shareScore();
+            } else {
+                console.warn('TelegramGameProxy не найден. Возможно, игра запущена вне Telegram или скрипт games.js не загружен.');
+                alert('Эта функция работает только тогда, когда игра запущена внутри Telegram!');
+            }
         }
     </script>
     <script src="https://telegram.org/js/games.js"></script>

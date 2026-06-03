@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -25,19 +26,19 @@ if (BOT_TOKEN) {
     
     bot?.sendGame(chatId, GAME_SHORT_NAME).catch((err) => {
         console.error('Ошибка sendGame:', err.message);
-        bot?.sendMessage(chatId, `Ошибка запуска игры "${GAME_SHORT_NAME}". Убедитесь, что игра зарегистрирована в @BotFather через /newgame.`, {
-            reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: '🌐 Играть в браузере',
-                      url: GAME_URL,
-                    }
-                  ]
-                ]
-            }
-        });
+        bot?.sendMessage(chatId, `Ошибка запуска игры "${GAME_SHORT_NAME}". Убедитесь, что игра зарегистрирована в @BotFather через /newgame.`);
     });
+  });
+
+  // Правильный обработчик Inline Query для передачи КАРТОЧКИ ИГРЫ
+  bot.on('inline_query', (query) => {
+    bot?.answerInlineQuery(query.id, [
+      {
+        type: 'game',
+        id: query.id,
+        game_short_name: GAME_SHORT_NAME
+      }
+    ], { cache_time: 0 }).catch(e => console.error('Inline Query Error:', e));
   });
 
   bot.on('callback_query', (query) => {
@@ -73,6 +74,7 @@ if (BOT_TOKEN) {
 
 async function startServer() {
   const app = express();
+  app.use(cors());
   app.use(express.json());
 
   app.post('/api/set_score', async (req, res) => {
@@ -82,14 +84,23 @@ async function startServer() {
       const { user_id, score, inline_message_id, chat_id, message_id } = req.body;
       const opts: any = { force: true };
       
-      if (inline_message_id) {
-        opts.inline_message_id = inline_message_id;
+      const parsedUserId = Number(user_id);
+      const parsedScore = Math.floor(Number(score));
+
+      if (isNaN(parsedUserId) || isNaN(parsedScore)) {
+        return res.status(400).json({ error: 'user_id and score must be valid numbers' });
+      }
+
+      if (inline_message_id && inline_message_id !== 'null' && inline_message_id !== '') {
+        opts.inline_message_id = String(inline_message_id);
+      } else if (chat_id && message_id) {
+        opts.chat_id = Number(chat_id);
+        opts.message_id = Number(message_id);
       } else {
-        opts.chat_id = chat_id;
-        opts.message_id = message_id;
+        return res.status(400).json({ error: 'Missing message ID or inline_message_id' });
       }
       
-      const result = await bot.setGameScore(user_id, score, opts);
+      const result = await bot.setGameScore(parsedUserId, parsedScore, opts);
       res.json(result);
     } catch (err: any) {
       console.error('setGameScore Error:', err);
