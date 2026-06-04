@@ -23,7 +23,7 @@
         if (typeof TelegramGameProxy !== 'undefined' && TelegramGameProxy.initParams) {
             urlParams = TelegramGameProxy.initParams;
         } else {
-            urlParams = new URLParams(window.location.search);
+            urlParams = new URLSearchParams(window.location.search);
         }
 
         const userId = urlParams.user_id || urlParams.get?.('user_id');
