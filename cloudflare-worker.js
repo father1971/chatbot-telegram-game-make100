@@ -68,29 +68,168 @@ export default {
       try {
         const update = await request.json();
 
-        // 1. Старт игры
-        if (update.message?.text?.startsWith('/start')) {
+        // 1. Обработка входящих текстовых сообщений
+        if (update.message) {
           const chatId = update.message.chat.id;
-          
-          const sendResponse = await fetch(`${TELEGRAM_API}/sendGame`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: chatId,
-              game_short_name: GAME_SHORT_NAME
-            })
-          });
+          const text = update.message.text ? update.message.text.trim() : '';
 
-          const sendResult = await sendResponse.json();
-          if (!sendResult.ok) {
-            // Если игра не зарегистрирована в BotFather, отправим обычное сообщение с ошибкой
-            await fetch(`${TELEGRAM_API}/sendMessage`, {
+          const defaultKeyboard = {
+            keyboard: [
+              [{ text: "🎮 Играть" }],
+              [{ text: "ℹ️ Помощь" }, { text: "💬 Обратная связь" }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          };
+
+          const sendMessage = async (targetId, messageText, extra = {}) => {
+            return fetch(`${TELEGRAM_API}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: targetId,
+                text: messageText,
+                ...extra
+              })
+            });
+          };
+
+          const sendHelpMessage = async (targetId) => {
+            const helpText = `🎯 <b>Цель игры:</b>\n` +
+              `Получить в ответе ровно 100, используя 6 заданных цифр, которые вы видите на билете или автомобильном номере.\n\n` +
+              `🧩 <b>Основные правила:</b>\n` +
+              `1. Порядок цифр менять нельзя! Они должны идти точно так же, как написаны на экране.\n` +
+              `2. Между цифрами, а также перед первой и после последней цифры есть пустые ячейки (слоты). Нажмите на любую ячейку, чтобы выбрать её (она подсветится оранжевым цветом).\n` +
+              `3. Используйте клавиатуру внизу экрана, чтобы вставлять в ячейки математические знаки: +, -, *, /.\n` +
+              `4. Склейка чисел. Если вы оставите ячейку между двумя цифрами пустой, они превратятся в двузначное (или трехзначное) число. Например, если между 9 и 8 ничего не поставить, они станут числом 98.\n` +
+              `5. Скобки. Доступны скобки ( и ). Используйте их, чтобы менять порядок действий (сначала программа считает то, что в скобках, потом умножает/делит, а затем складывает/вычитает).\n` +
+              `6. Десятичные дроби. Если нужна дробь, используйте запятую ,. Например, 1, 5 склеенное через запятую даст 1.5.\n\n` +
+              `🎮 <b>Игровой процесс:</b>\n` +
+              `• Приложение в реальном времени считает результат вашего выражения.\n` +
+              `• Как только программа увидит, что получилось ровно 100 — всё автоматически вспыхнет зеленым цветом, и вы перейдете на следующий уровень!\n` +
+              `• Застряли?\n` +
+              `  - Нажмите кнопку со стрелочками «Пропустить», чтобы получить другой номер.\n` +
+              `  - Если нет идей, жмите кнопку «Подсказка» (лампочка) — игра сама подставит знаки и покажет решение (но очки за этот билет не начислятся).\n` +
+              `  - Иногда попадаются билеты, из которых невозможно собрать 100. Если вы нажмете на «Подсказку» и игра покажет красную надпись «У этой комбинации нет решения», просто жмите кнопку пропустить!`;
+
+            await sendMessage(targetId, helpText, { 
+              parse_mode: 'HTML',
+              reply_markup: defaultKeyboard
+            });
+          };
+
+          const sendFeedbackInstructions = async (targetId) => {
+            const feedbackText = `💬 *Обратная связь*\n\n` +
+              `Мы ценим ваше мнение! Чтобы отправить нам отзыв или предложение, воспользуйтесь одним из способов:\n\n` +
+              `1. Напишите команду: \`/feedback ваш текст\`\n` +
+              `2. Или просто отправьте сообщение, начинающееся со слов *Обратная связь* или *Отзыв* (например, "Обратная связь: отличная игра!").`;
+            
+            await sendMessage(targetId, feedbackText, { 
+              parse_mode: 'Markdown',
+              reply_markup: defaultKeyboard
+            });
+          };
+
+          const sendFeedbackToAdmin = async (msg, feedbackContent) => {
+            const username = msg.from?.username ? `@${msg.from.username}` : 'нет';
+            const firstName = msg.from?.first_name || '';
+            const lastName = msg.from?.last_name || '';
+            const userId = msg.from?.id || 'неизвестно';
+            const name = [firstName, lastName].filter(Boolean).join(' ') || 'Пользователь';
+
+            const feedbackMsg = `📝 <b>Новый отзыв!</b>\n\n` +
+              `👤 <b>Отправитель:</b> ${name} (${username})\n` +
+              `🆔 <b>User ID:</b> <code>${userId}</code>\n\n` +
+              `💬 <b>Текст отзыва:</b>\n${feedbackContent}`;
+
+            // Отправляем пользователю подтверждение получения отзыва
+            await sendMessage(chatId, "✅ Спасибо за ваш отзыв! Мы обязательно его прочтем и сделаем игру ещё лучше.", {
+              reply_markup: defaultKeyboard
+            });
+
+            const targetAdminId = env.ADMIN_CHAT_ID;
+            if (targetAdminId) {
+              await sendMessage(Number(targetAdminId), feedbackMsg, { parse_mode: 'HTML' });
+            }
+          };
+
+          if (text.startsWith('/start')) {
+            // Зарегистрируем глобальные команды при вызове /start
+            ctx.waitUntil(
+              fetch(`${TELEGRAM_API}/setMyCommands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  commands: [
+                    { command: 'start', description: '🎮 Запустить игру и открыть меню' },
+                    { command: 'help', description: 'ℹ️ Инструкция по игре' },
+                    { command: 'feedback', description: '💬 Написать отзыв / Обратная связь' }
+                  ]
+                })
+              }).catch(() => {})
+            );
+
+            // Отправляем приветствие с меню
+            await sendMessage(chatId, "Добро пожаловать в игру Make100! 🎮\nВыберите кнопку на клавиатуре ниже, чтобы играть или получить информацию:", {
+              reply_markup: defaultKeyboard
+            });
+
+            // Отправляем карточку игры
+            const sendResponse = await fetch(`${TELEGRAM_API}/sendGame`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chat_id: chatId,
-                text: `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`
+                game_short_name: GAME_SHORT_NAME
               })
+            });
+
+            const sendResult = await sendResponse.json();
+            if (!sendResult.ok) {
+              await sendMessage(chatId, `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`);
+            }
+          } else if (text.startsWith('/help') || text === "ℹ️ Помощь") {
+            await sendHelpMessage(chatId);
+          } else if (text === "💬 Обратная связь") {
+            await sendFeedbackInstructions(chatId);
+          } else if (text.startsWith('/feedback')) {
+            const feedbackText = text.substring(9).trim();
+            if (feedbackText) {
+              await sendFeedbackToAdmin(update.message, feedbackText);
+            } else {
+              await sendFeedbackInstructions(chatId);
+            }
+          } else if (text === "🎮 Играть") {
+            const sendResponse = await fetch(`${TELEGRAM_API}/sendGame`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                game_short_name: GAME_SHORT_NAME
+              })
+            });
+            const sendResult = await sendResponse.json();
+            if (!sendResult.ok) {
+              await sendMessage(chatId, `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`, {
+                reply_markup: defaultKeyboard
+              });
+            }
+          } else if (text.toLowerCase().startsWith("отзыв") || text.toLowerCase().startsWith("обратная связь")) {
+            let feedbackContent = '';
+            if (text.toLowerCase().startsWith("отзыв")) {
+              feedbackContent = text.substring(5).replace(/^[:\s]+/, '');
+            } else {
+              feedbackContent = text.substring(14).replace(/^[:\s]+/, '');
+            }
+
+            if (feedbackContent) {
+              await sendFeedbackToAdmin(update.message, feedbackContent);
+            } else {
+              await sendFeedbackInstructions(chatId);
+            }
+          } else if (text !== "") {
+            await sendMessage(chatId, "Введите /start, чтобы открыть меню игры! 🎮\nИли нажмите кнопку «Помощь» / «Обратная связь».", {
+              reply_markup: defaultKeyboard
             });
           }
         }
