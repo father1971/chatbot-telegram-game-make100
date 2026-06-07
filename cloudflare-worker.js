@@ -186,12 +186,27 @@ export default {
 
             const sendResult = await sendResponse.json();
             if (!sendResult.ok) {
-              await sendMessage(chatId, `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`);
+              await sendMessage(chatId, `Ошибка: Игра '${GAME_SHORT_NAME}' не найдена в этом боте. Зарегистрируйте её в @BotFather через /newgame.`, {
+                reply_markup: defaultKeyboard
+              });
             }
           } else if (text.startsWith('/help') || text === "ℹ️ Помощь") {
             await sendHelpMessage(chatId);
           } else if (text === "💬 Обратная связь") {
             await sendFeedbackInstructions(chatId);
+          } else if (text.startsWith('/setadmin')) {
+            const adminMessage = `👑 <b>Команда /setadmin получена!</b>\n\n` +
+              `Ваш Telegram ID чата: <code>${chatId}</code>\n\n` +
+              `Так как ваш рабочий бот запущен на платформе Cloudflare (которая работает без постоянной памяти), динамическая регистрация через чат не сохраняется автоматически.\n\n` +
+              `<b>Чтобы отзывы начали приходить прямо сюда в этот чат:</b>\n` +
+              `Добавьте в настройки вашего Cloudflare Worker переменную окружения:\n` +
+              `<code>ADMIN_CHAT_ID</code> со значением <code>${chatId}</code>\n\n` +
+              `После добавления переменной, все отзывы будут мгновенно присылаться вам сюда!`;
+
+            await sendMessage(chatId, adminMessage, {
+              parse_mode: 'HTML',
+              reply_markup: defaultKeyboard
+            });
           } else if (text.startsWith('/feedback')) {
             const feedbackText = text.substring(9).trim();
             if (feedbackText) {

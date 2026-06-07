@@ -64,8 +64,6 @@ if (BOT_TOKEN) {
     }).catch(err => console.error('Error sendHelpMessage:', err.message));
   };
 
-  let dynamicAdminChatId: number | null = null;
-
   // Функция для отправки отзыва администратору
   const sendFeedbackToAdmin = (msg: TelegramBot.Message, text: string) => {
     const chatId = msg.chat.id;
@@ -87,9 +85,9 @@ if (BOT_TOKEN) {
       console.error('Ошибка отправки подтверждения пользователю:', err.message);
     });
 
-    // Пытаемся получить chat ID администратора из env или использовать установленный динамически через /setadmin
+    // Получаем chat ID администратора из env
     const envAdminId = process.env.ADMIN_CHAT_ID;
-    const targetAdminId = envAdminId ? Number(envAdminId) : dynamicAdminChatId;
+    const targetAdminId = envAdminId ? Number(envAdminId) : null;
 
     if (targetAdminId) {
       bot?.sendMessage(targetAdminId, feedbackMsg, { parse_mode: 'HTML' }).catch(err => {
@@ -97,10 +95,10 @@ if (BOT_TOKEN) {
       });
     } else {
       console.log(`[Feedback] в консоли от ${name} (${username}): ${text}`);
-      console.warn('ADMIN_CHAT_ID не настроен в .env, и никто не выполнил команду /setadmin.');
+      console.warn('ADMIN_CHAT_ID не настроен в .env.');
       
       // Даем подсказку разработчику при локальном/предпросмотровом запуске, как получать эти отзывы прямо в Telegram
-      bot?.sendMessage(chatId, `💡 <b>Подсказка разработчику:</b>\nОтзыв сохранен в логах. Чтобы получать эти отзывы прямо в этом чате в Telegram, напишите команду:\n<code>/setadmin</code>`, { 
+      bot?.sendMessage(chatId, `💡 <b>Подсказка разработчику:</b>\nОтзыв сохранен в логах. Чтобы получать эти отзывы прямо в этом чате в Telegram, вам нужно получить ваш ID чата с помощью команды:\n<code>/setadmin</code>\nи добавить его в переменную окружения <code>ADMIN_CHAT_ID</code> в настройках вашего приложения.`, { 
         parse_mode: 'HTML',
         reply_markup: defaultKeyboard
       }).catch(err => {
@@ -148,8 +146,14 @@ if (BOT_TOKEN) {
   // Обработка /setadmin
   bot.onText(/\/setadmin/, (msg) => {
     const chatId = msg.chat.id;
-    dynamicAdminChatId = chatId;
-    bot?.sendMessage(chatId, `👑 <b>Вы успешно зарегистрированы как администратор бота!</b>\n\nТеперь все отзывы пользователей будут приходить вам прямо сюда в этот чат.\n\n<i>(Примечание: для постоянного сохранения добавьте переменную окружения ADMIN_CHAT_ID = ${chatId} в настройках приложения)</i>`, { 
+    const adminMessage = `👑 <b>Команда /setadmin получена!</b>\n\n` +
+      `Ваш Telegram ID чата: <code>${chatId}</code>\n\n` +
+      `<b>Чтобы отзывы начали приходить прямо сюда в этот чат:</b>\n` +
+      `Добавьте в настройки или файл <code>.env</code> вашего приложения переменную окружения:\n` +
+      `<code>ADMIN_CHAT_ID</code> со значением <code>${chatId}</code>\n\n` +
+      `После добавления переменной, все отзывы будут мгновенно присылаться вам сюда!`;
+
+    bot?.sendMessage(chatId, adminMessage, { 
       parse_mode: 'HTML',
       reply_markup: defaultKeyboard
     }).catch(err => {
