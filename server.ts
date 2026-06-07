@@ -231,10 +231,6 @@ if (BOT_TOKEN) {
       } else {
         sendFeedbackInstructions(chatId);
       }
-    } else {
-      bot?.sendMessage(chatId, "Введите /start, чтобы открыть меню игры! 🎮\nИли нажмите кнопку «Помощь» / «Обратная связь».", {
-        reply_markup: defaultKeyboard
-      });
     }
   });
 

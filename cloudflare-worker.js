@@ -227,10 +227,6 @@ export default {
             } else {
               await sendFeedbackInstructions(chatId);
             }
-          } else if (text !== "") {
-            await sendMessage(chatId, "Введите /start, чтобы открыть меню игры! 🎮\nИли нажмите кнопку «Помощь» / «Обратная связь».", {
-              reply_markup: defaultKeyboard
-            });
           }
         }
 
