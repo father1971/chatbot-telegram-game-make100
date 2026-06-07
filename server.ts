@@ -19,6 +19,17 @@ if (BOT_TOKEN) {
   const GAME_SHORT_NAME = process.env.GAME_SHORT_NAME || "make100";
   const BOT_USERNAME = process.env.BOT_USERNAME || 'test_game_make100_bot';
 
+  // Регистрируем глобальное меню команд бота (синяя кнопка Menu в углу экрана)
+  bot.setMyCommands([
+    { command: 'start', description: '🎮 Запустить игру и открыть меню' },
+    { command: 'help', description: 'ℹ️ Инструкция по игре' },
+    { command: 'feedback', description: '💬 Написать отзыв / Обратная связь' }
+  ]).then(() => {
+    console.log('Bot commands registered successfully');
+  }).catch((err) => {
+    console.error('Failed to register bot commands:', err.message);
+  });
+
   const defaultKeyboard = {
     keyboard: [
       [{ text: "🎮 Играть" }],
