@@ -23,7 +23,7 @@ export default {
 
     const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-    // --- 1. Endpoint для установки рекордов ---
+    // --- 1. Endpoint для установки рекордов & /setup ---
     if (request.method === 'POST' && pathname === '/api/set_score') {
       try {
         const data = await request.json();
@@ -60,6 +60,55 @@ export default {
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: {'Access-Control-Allow-Origin': '*'} });
+      }
+    }
+
+    const cleanPath = pathname.replace(/\/$/, '');
+    if (request.method === 'GET' && (cleanPath === '' || cleanPath === '/setup')) {
+      try {
+        const commandsResponse = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            commands: [
+              { command: 'start', description: '🎮 Запустить игру и открыть меню' },
+              { command: 'help', description: 'ℹ️ Инструкция по игре' },
+              { command: 'feedback', description: '💬 Написать отзыв / Обратная связь' }
+            ]
+          })
+        });
+        const commandsResult = await commandsResponse.json();
+
+        let webhookResult = null;
+        const workerUrl = new URL(request.url).origin;
+        if (workerUrl && !workerUrl.includes('localhost') && !workerUrl.includes('127.0.0.1')) {
+          const webhookResp = await fetch(`${TELEGRAM_API}/setWebhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: workerUrl })
+          });
+          webhookResult = await webhookResp.json();
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Setup completed successfully!',
+          setMyCommands: commandsResult,
+          setWebhook: webhookResult,
+          info: {
+            gameShortName: GAME_SHORT_NAME,
+            botUsername: BOT_USERNAME,
+            workerUrl: workerUrl
+          }
+        }, null, 2), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }
 
